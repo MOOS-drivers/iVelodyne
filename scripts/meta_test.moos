@@ -1,0 +1,23 @@
+ServerHost = localhost
+ServerPort = 9000
+Community = iVelodyne_Test
+
+MOOSTimeWarp = 1
+
+ProcessConfig = ANTLER
+{
+  MSBetweenLaunches = 500
+  Run = MOOSDB           @ NewConsole = true 
+  Run = iVelodyne             @ NewConsole = false
+}
+
+ProcessConfig = uXMS
+{
+  AppTick       = 10
+  CommsTick     = 10
+
+  source = iVelodyne
+}
+
+#include ../src/iVelodyne.moos
+

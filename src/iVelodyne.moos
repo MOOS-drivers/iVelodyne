@@ -1,0 +1,11 @@
+//------------------------------------------------
+// iVelodyne config block
+
+ProcessConfig = iVelodyne
+{
+   AppTick   = 4
+   CommsTick = 4
+   
+   // iVelodyne configuration here
+}
+
