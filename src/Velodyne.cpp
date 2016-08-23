@@ -15,8 +15,21 @@ using namespace std;
 //---------------------------------------------------------
 // Constructor
 
-Velodyne::Velodyne()
+Velodyne::Velodyne():
+  m_publish_raw(false)
 {
+  m_udpDataSocket = new UDPConnectionServer(2368);
+  m_acqThread = new AcquisitionThread<DataPacket>(*m_udpDataSocket);
+}
+
+//---------------------------------------------------------
+// Destructor
+
+Velodyne::~Velodyne()
+{
+  m_acqThread->interrupt();
+  delete m_acqThread;
+  delete m_udpDataSocket;
 }
 
 //---------------------------------------------------------
@@ -34,20 +47,17 @@ bool Velodyne::OnNewMail(MOOSMSG_LIST &NewMail)
 #if 0 // Keep these around just for template
     string comm  = msg.GetCommunity();
     double dval  = msg.GetDouble();
-    string sval  = msg.GetString(); 
+    string sval  = msg.GetString();
     string msrc  = msg.GetSource();
     double mtime = msg.GetTime();
     bool   mdbl  = msg.IsDouble();
     bool   mstr  = msg.IsString();
 #endif
 
-     if(key == "FOO") 
-       cout << "great!";
+    if(key != "APPCAST_REQ") // handled by AppCastingMOOSInstrument
+      reportRunWarning("Unhandled Mail: " + key);
+  }
 
-     else if(key != "APPCAST_REQ") // handle by AppCastingMOOSInstrument
-       reportRunWarning("Unhandled Mail: " + key);
-   }
-	
    return(true);
 }
 
@@ -67,7 +77,13 @@ bool Velodyne::OnConnectToServer()
 bool Velodyne::Iterate()
 {
   AppCastingMOOSInstrument::Iterate();
-  // Do your thing here!
+
+  if (m_publish_raw)
+    if (!m_acqThread->getBuffer().isEmpty()) {
+      Notify("IVELODYNE_RAW",static_cast<void *>(m_acqThread->getBuffer().dequeue().get()),
+                    m_acqThread->getBuffer().getSize(),MOOSLocalTime());
+    }
+
   AppCastingMOOSInstrument::PostReport();
   return(true);
 }
@@ -93,10 +109,11 @@ bool Velodyne::OnStartUp()
     string value = line;
 
     bool handled = false;
-    if(param == "FOO") {
-      handled = true;
-    }
-    else if(param == "BAR") {
+    if(param == "PUBLISH_RAW") {
+      if (toupper(value) == "TRUE")
+        m_publish_raw=true;
+      else
+        m_publish_raw=false;
       handled = true;
     }
 
@@ -104,8 +121,9 @@ bool Velodyne::OnStartUp()
       reportUnhandledConfigWarning(orig);
 
   }
-  
-  registerVariables();	
+
+  registerVariables();
+  m_acqThread->start();
   return(true);
 }
 
@@ -122,21 +140,17 @@ void Velodyne::registerVariables()
 //------------------------------------------------------------
 // Procedure: buildReport()
 
-bool Velodyne::buildReport() 
+bool Velodyne::buildReport()
 {
-  m_msgs << "============================================ \n";
-  m_msgs << "File:                                        \n";
+  m_msgs << "iVelodyne \n";
   m_msgs << "============================================ \n";
 
-  ACTable actab(4);
-  actab << "Alpha | Bravo | Charlie | Delta";
+  ACTable actab(2);
+  actab << "Time | Buffer Size";
   actab.addHeaderLines();
-  actab << "one" << "two" << "three" << "four";
+  uint buffer_size = m_acqThread->getBuffer().getSize();
+  actab << MOOSLocalTime() << buffer_size;
   m_msgs << actab.getFormattedString();
 
   return(true);
 }
-
-
-
-

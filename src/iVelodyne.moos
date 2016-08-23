@@ -3,9 +3,9 @@
 
 ProcessConfig = iVelodyne
 {
-   AppTick   = 4
-   CommsTick = 4
-   
-   // iVelodyne configuration here
-}
+  sAppTick   = 4
+  sCommsTick = 4
 
+  // iVelodyne configuration here
+  PUBLISH_RAW = false // default
+}
