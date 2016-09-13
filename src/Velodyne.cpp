@@ -19,7 +19,7 @@ Velodyne::Velodyne():
   m_publish_raw(false)
 {
   m_udpDataSocket = new UDPConnectionServer(2368);
-  m_acqThread = new AcquisitionThread<DataPacket>(*m_udpDataSocket);
+  m_acqThread = new AcquisitionThread<DataPacket>(*m_udpDataSocket,32);
   setMaxDistance(VEL_MAX_DIST);
   setMinDistance(VEL_MIN_DIST);
 }
@@ -82,13 +82,19 @@ bool Velodyne::Iterate()
 
   std::shared_ptr<DataPacket> packet;
 
-  while (!m_acqThread->getBuffer().isEmpty())
-    if (readPacket(packet))
+  while (!m_acqThread->getBuffer().isEmpty()){
+    if (readPacket(packet)){
       if (m_publish_raw){
         Notify("IVELODYNE_RAW",
-                  static_cast<void *>(packet.get()),
-                  packet.get()->mPacketSize,MOOSLocalTime());
+          static_cast<void *>(packet.get()),
+          packet.get()->mPacketSize,MOOSLocalTime());
       }
+      m_acq_point_cloud.clear();
+      Converter::toPointCloud(*packet, m_calibration, m_acq_point_cloud,
+                              m_min_distance, m_max_distance);
+      publishPointCloud();
+    }
+  }
 
   AppCastingMOOSInstrument::PostReport();
   return(true);
@@ -102,6 +108,18 @@ bool Velodyne::readPacket(std::shared_ptr<DataPacket>& packet)
     packet = m_acqThread->getBuffer().dequeue();
   }
   return(true);
+}
+
+void Velodyne::publishPointCloud()
+{
+  m_point_cloud = m_acq_point_cloud;
+  std::ostringstream s_pc;
+  for(auto it = m_point_cloud.getPointBegin();
+    it != m_point_cloud.getPointEnd();
+    ++it){
+    s_pc << "x=" << it->mX << ",y=" << it->mY << ",z=" << it->mZ << ";";
+  }
+  Notify("IVELODYNE_POINTCLOUD", s_pc.str(), MOOSLocalTime());
 }
 
 //---------------------------------------------------------
@@ -136,6 +154,8 @@ bool Velodyne::OnStartUp()
       handled = setMaxDistance(atof(value.c_str()));
     else if (param == "MIN_DISTANCE")
       handled = setMinDistance(atof(value.c_str()));
+    else if (param == "CALIBRATION")
+      handled = setCalibration(value);
 
 
     if(!handled)
@@ -146,6 +166,18 @@ bool Velodyne::OnStartUp()
   registerVariables();
   m_acqThread->start();
   return(true);
+}
+
+bool Velodyne::setCalibration(string file_path)
+{
+  std::ifstream calib_file(file_path);
+  if (calib_file.is_open() && calib_file.good()) {
+    calib_file >> m_calibration;
+    cout << "Calibration file status OK." << endl;
+    return(true);
+  }
+  cerr << "Couldn't open the calibration file!" << endl;
+  return(false);
 }
 
 bool Velodyne::setMaxDistance(double v)
@@ -176,7 +208,7 @@ void Velodyne::registerVariables()
 bool Velodyne::buildReport()
 {
   m_msgs << "Configuration:\n";
-  m_msgs << "--------------\n";
+  m_msgs << "______________\n";
   ACTable actab(2);
   actab << "Variable | Value";
   actab.addHeaderLines();

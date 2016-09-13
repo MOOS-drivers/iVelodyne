@@ -9,6 +9,8 @@ ProcessConfig = iVelodyne
   // iVelodyne configuration here
   PUBLISH_RAW = false // default
 
+  CALIBRATION = ../data/calib-HDL-32E.dat
+
   MAX_DISTANCE = 50
   MIN_DISTANCE = 0.5
 }
