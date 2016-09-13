@@ -10,6 +10,9 @@
 
 #include "sensor/AcquisitionThread.h"
 #include "sensor/DataPacket.h"
+#include "sensor/Calibration.h"
+#include "data-structures/VdynePointCloud.h"
+#include "sensor/Converter.h"
 
 #include "MOOS/libMOOS/Thirdparty/AppCasting/AppCastingMOOSInstrument.h"
 
@@ -40,7 +43,14 @@ class Velodyne : public AppCastingMOOSInstrument
   bool setMaxDistance(double);
   bool setMinDistance(double);
 
+  Calibration m_calibration;
+  bool setCalibration(std::string);
+
+  VdynePointCloud m_point_cloud;
+  VdynePointCloud m_acq_point_cloud;
+
   bool readPacket(std::shared_ptr<DataPacket>&);
+  void publishPointCloud();
 
 
  private: // State variables
