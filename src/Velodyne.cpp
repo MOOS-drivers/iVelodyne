@@ -20,6 +20,8 @@ Velodyne::Velodyne():
 {
   m_udpDataSocket = new UDPConnectionServer(2368);
   m_acqThread = new AcquisitionThread<DataPacket>(*m_udpDataSocket);
+  setMaxDistance(VEL_MAX_DIST);
+  setMinDistance(VEL_MIN_DIST);
 }
 
 //---------------------------------------------------------
@@ -78,13 +80,27 @@ bool Velodyne::Iterate()
 {
   AppCastingMOOSInstrument::Iterate();
 
-  if (m_publish_raw)
-    if (!m_acqThread->getBuffer().isEmpty()) {
-      Notify("IVELODYNE_RAW",static_cast<void *>(m_acqThread->getBuffer().dequeue().get()),
-                    m_acqThread->getBuffer().getSize(),MOOSLocalTime());
-    }
+  std::shared_ptr<DataPacket> packet;
+
+  while (!m_acqThread->getBuffer().isEmpty())
+    if (readPacket(packet))
+      if (m_publish_raw){
+        Notify("IVELODYNE_RAW",
+                  static_cast<void *>(packet.get()),
+                  packet.get()->mPacketSize,MOOSLocalTime());
+      }
 
   AppCastingMOOSInstrument::PostReport();
+  return(true);
+}
+
+bool Velodyne::readPacket(std::shared_ptr<DataPacket>& packet)
+{
+  if (m_acqThread->getBuffer().isEmpty()) {
+    return(false);
+  } else {
+    packet = m_acqThread->getBuffer().dequeue();
+  }
   return(true);
 }
 
@@ -116,6 +132,11 @@ bool Velodyne::OnStartUp()
         m_publish_raw=false;
       handled = true;
     }
+    else if (param == "MAX_DISTANCE")
+      handled = setMaxDistance(atof(value.c_str()));
+    else if (param == "MIN_DISTANCE")
+      handled = setMinDistance(atof(value.c_str()));
+
 
     if(!handled)
       reportUnhandledConfigWarning(orig);
@@ -124,6 +145,18 @@ bool Velodyne::OnStartUp()
 
   registerVariables();
   m_acqThread->start();
+  return(true);
+}
+
+bool Velodyne::setMaxDistance(double v)
+{
+  m_max_distance = std::max(v, m_min_distance);
+  return(true);
+}
+
+bool Velodyne::setMinDistance(double v)
+{
+  m_min_distance = std::min(v, m_max_distance);
   return(true);
 }
 
@@ -142,10 +175,18 @@ void Velodyne::registerVariables()
 
 bool Velodyne::buildReport()
 {
-  m_msgs << "iVelodyne \n";
-  m_msgs << "============================================ \n";
-
+  m_msgs << "Configuration:\n";
+  m_msgs << "--------------\n";
   ACTable actab(2);
+  actab << "Variable | Value";
+  actab.addHeaderLines();
+  actab << "Maximum Distance" << m_max_distance;
+  actab << "Minimum Distance" << m_min_distance;
+  m_msgs << actab.getFormattedString();
+
+  m_msgs << endl << endl;
+
+  actab = ACTable(2);
   actab << "Time | Buffer Size";
   actab.addHeaderLines();
   uint buffer_size = m_acqThread->getBuffer().getSize();
