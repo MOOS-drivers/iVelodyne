@@ -7,8 +7,8 @@ MOOSTimeWarp = 1
 ProcessConfig = ANTLER
 {
   MSBetweenLaunches = 500
-  Run = MOOSDB           @ NewConsole = true 
-  Run = iVelodyne             @ NewConsole = false
+  Run = MOOSDB           @ NewConsole = false
+  Run = iVelodyne        @ NewConsole = false
 }
 
 ProcessConfig = uXMS
@@ -20,4 +20,3 @@ ProcessConfig = uXMS
 }
 
 #include ../src/iVelodyne.moos
-

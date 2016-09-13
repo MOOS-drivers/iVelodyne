@@ -3,9 +3,12 @@
 
 ProcessConfig = iVelodyne
 {
-  sAppTick   = 4
-  sCommsTick = 4
+  AppTick   = 4
+  CommsTick = 4
 
   // iVelodyne configuration here
   PUBLISH_RAW = false // default
+
+  MAX_DISTANCE = 50
+  MIN_DISTANCE = 0.5
 }
